@@ -8,7 +8,11 @@ const cors = require("cors");
 const config = require("../config/devlopment.json");
 const client = require("../src/components/utils/redisClient")
 const app = express();
+import { initializeApp } from "firebase/app";
+import { getStorage } from "firebase/storage";
+import { getFirestore } from "firebase/firestore";
 // const adminRouter = require("../src/components/admin/routes");
+// const defaultProject = initializeApp("../src/components/utils/init-firebase.ts");
 
 
 // const patientRouter = require("../src/components/patients")

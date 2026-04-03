@@ -34,6 +34,10 @@ const ENUM = {
     WALLETSTATUS:{
         ACTIVE:1,
         INACTIVE:0
+    },
+    ISADMIN:{
+        ACTIVE:1,
+        INACTIVE:0
     }
     
 }

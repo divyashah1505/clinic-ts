@@ -1,10 +1,12 @@
 import type { Request, Response, NextFunction, Router } from "express";
 const jwt = require("jsonwebtoken");
 const config = require("../../config/devlopment.json");
-const { appString } = require("../components/utils/appString");
+import appString from "../components/utils/appString";
 const Validator = require("validatorjs");
-import { Admin } from "../components/admin/models/admin";
-// 
+import  {Admin}  from "../components/admin/models/admin";
+import RoleModel from "../components/admin/models/roleModel";
+import { ObjectId } from "mongoose";
+// import Permission from "../components/admin/models/roleModel"
 const doctor = require("../components/doctors/models/doctor");
 const patient = require("../components/patients/models/patient");
 
@@ -19,7 +21,7 @@ interface AuthRequest extends Request {
 
 const verifyToken = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    console.log("hiii")
+    // console.log("veriftoken log")
     const auth = req.headers.authorization;
     if (!auth || !auth.startsWith("Bearer ")) {
       return res.status(401).json({ success: false, message: appString.AUTHORIZATIONHEADERS });
@@ -30,54 +32,59 @@ const verifyToken = async (req: AuthRequest, res: Response, next: NextFunction) 
     req.user = { id: decoded.id, role: decoded.role };
     next();
   } catch (err) {
-    return res.status(401).json({ success: false, message: "Invalid or Expired Token" });
+    return res.status(401).json({ success: false, message:appString.INVALID_TOKENS });
   }
 };
 
-const checkRole = (isAdminRoute: boolean, isDoctorRoute: boolean, isPatientRoute: boolean) => {
+const checkRole = (isAdminRoute: boolean, isDoctorRoute: boolean, isPatientRoute: boolean, requiredIndex?: any) => {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const userPayload = req.user;
-
-      if (!userPayload) {
-        return res.status(401).json({ message: appString.Unauthorized });
-      }
+      if (!userPayload) return res.status(401).json({ message: appString.UNAUTHORIZED });
 
       const userId = typeof userPayload.id === "object" ? userPayload.id.id : userPayload.id;
-
-      if (!userId) {
-        return res.status(400).json({ message: "User identity not found in token" });
-      }
+      let userData: any = null;
 
       if (isAdminRoute) {
-        const data = await Admin .findById(userId);
-        if (data) return next();
-        return error(res,{ message: appString.ADMIN_UNAUTHORIZED });
+        userData = await Admin.findOne({ _id: userId }).populate('role');
+      } else if (isDoctorRoute) {
+        userData = await doctor.findOne({ _id: userId });
+      } else if (isPatientRoute) {
+        userData = await patient.findOne({ _id: userId });
       }
 
-      if (isDoctorRoute) {
-        const data = await doctor.findById(userId);
-        if (data) return next();
-        return error(res,{ message: appString.DOCTOR_UNAUTHORIZED });
+      if (!userData) {
+        return error(res, { message: "Access denied: User not found in this role" });
       }
 
-      if (isPatientRoute) {
-        const data = await patient.findById(userId);
-        if (data) return next();
-        return error(res,{ message: appString.PATIENT_UNAUTHORIZED });
+      if (isAdminRoute && requiredIndex && Array.isArray(requiredIndex)) {
+        const PER = userData.role?.permission;
+        if (!PER) return error(res, { message:appString.PERMISSION_NOT_ALLOWED });
+
+        for (const data of requiredIndex) {
+          if (!PER[data.name] || PER[data.name].charAt(data.index) !== "1") {
+            return error(res, { message: appString.PERMISSION_NOT_ALLOWED });
+          }
+        }
       }
 
-      return error(res,{ message: "Access denied" });
+      return next();
+
     } catch (err) {
       console.error("Auth Middleware Error:", err);
-      return error(res,{ message: appString.SERVER_ERROR });
+      if (!res.headersSent) {
+        return error(res, { message: appString.SERVER_ERROR });
+      }
     }
   };
 };
 
+
+
+
 const checkProfileCompletion = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) return res.status(401).json({ message: appString.Unauthorized });
+    if (!req.user) return res.status(401).json({ message: appString.UNAUTHORIZED });
 
     const doctorData = await doctor.findById(req.user.id);
     if (!doctorData) return res.status(404).json({ message: "Doctor not found" });
@@ -88,7 +95,7 @@ const checkProfileCompletion = async (req: AuthRequest, res: Response, next: Nex
     next();
   } catch (err: any) {
     console.error("Middleware Error:", err.message);
-    return error(res, "Internal Server Error", 500);
+    return error(res, appString.SERVER_ERROR,500);
   }
 };
 
@@ -100,24 +107,21 @@ const routeArray = (
   isPatient: boolean = false
 ): Router => {
   array_.forEach((route) => {
-    const { method, path, controller, middleware, isPublic = false, isProfileCheck = false } = route;
+    const { method, path, controller, middleware, isPublic = false, isProfileCheck = false, permissions } = route;
     let middlewares: any[] = [];
 
     if (!isPublic) {
-      // console.log("hhhhhhhhhhhhhhhhhh")
       middlewares.push(verifyToken);
-
 
       if (isProfileCheck) {
         middlewares.push(checkProfileCompletion);
       }
 
       if (isAdmin || isDoctor || isPatient) {
-        middlewares.push(checkRole(isAdmin, isDoctor, isPatient));
+        // const requiredIndex = permissions && permissions.length > 0 ? permissions[0].index : undefined;
+        middlewares.push(checkRole(isAdmin, isDoctor, isPatient, permissions));
       }
     }
-
-
 
     if (middleware) {
       middlewares.push(...(Array.isArray(middleware) ? middleware : [middleware]));
@@ -128,6 +132,7 @@ const routeArray = (
   });
   return router;
 };
+
 
 const validatorUtilWithCallback = (rules: object, customMessages?: object) => {
   return (req: Request, res: Response, next: NextFunction) => {

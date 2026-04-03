@@ -54,7 +54,7 @@ const doctorSchema = new Schema<IDoctor>({
     },
     contactNumber: {
         type: String,
-        required: validation.required(appString.Contact_REQUIRED),
+        required: validation.required(appString.CONTACT_REQUIRED),
     },
     documents: {
         type: Map,
@@ -87,7 +87,6 @@ const doctorSchema = new Schema<IDoctor>({
     },
     isLoginVerified: {
         type: Number,
-        // Fixed: changed 'ENUM' to 'enum' (lowercase)
         ENUM: [ENUM.ISLOGINVERFIED.VERIFIED, ENUM.ISLOGINVERFIED.UNVERIFIED], 
         default: ENUM.ISLOGINVERFIED.UNVERIFIED
     },
@@ -97,7 +96,7 @@ const doctorSchema = new Schema<IDoctor>({
     },
     isProfileComplete: {
         type: Number,
-        enum: [ENUM.ISPROFILECOMPLETE.COMPLETE, ENUM.ISPROFILECOMPLETE.INCOMPLTE],
+        ENUM: [ENUM.ISPROFILECOMPLETE.COMPLETE, ENUM.ISPROFILECOMPLETE.INCOMPLTE],
         default: ENUM.ISPROFILECOMPLETE.INCOMPLTE
     },
     completedStepsCount: {
@@ -111,7 +110,7 @@ const doctorSchema = new Schema<IDoctor>({
     },
     status: {
         type: Number,
-        enum: [ENUM.DOCTORSTATUS.ACTIVE, ENUM.DOCTORSTATUS.INACTIVE],
+        ENUM: [ENUM.DOCTORSTATUS.ACTIVE, ENUM.DOCTORSTATUS.INACTIVE],
         default: ENUM.DOCTORSTATUS.INACTIVE
     }
 }, { timestamps: true });

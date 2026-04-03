@@ -144,7 +144,7 @@ cron.schedule('*/20 * * * *', async () => {
     }
 });
 
-module.exports = { 
+export  { 
     storeUserToken, 
     removeUserToken, 
     getActiveToken, 
